@@ -148,7 +148,7 @@ class Recommender(BaseModel):
                             help='regularization weight for latent factor')
         parser.add_argument("--inverse_r", type=bool, default=True, help="consider inverse relation or not")
         parser.add_argument("--batch_test_flag", type=bool, default=True, help="use gpu or not")
-        parser.add_argument("--n_factors", type=int, default=2, help="number of latent factor for user favour")
+        parser.add_argument("--n_factors", type=int, default=2, help="number of pathogenic factors")
         parser.add_argument("--ind", type=str, default='consine', help="Independence modeling: mi, distance, cosine")
         parser.add_argument("--cuda", type=bool, default=True, help="use gpu or not")
         parser.add_argument("--gpu_id", type=int, default=0, help="gpu id")
