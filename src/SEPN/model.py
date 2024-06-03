@@ -16,8 +16,7 @@ class Aggregator(nn.Module):
         self.n_diseases = n_diseases
         self.n_factors = n_factors
 
-    def forward(self, dis_emb, dr_emb, latent_emb, di_lantent_weight, dr_lantent_weight, interact_mat, interact_mat_t,
-                u_edge, v_edge):
+    def forward(self, dis_emb, dr_emb, latent_emb, di_lantent_weight, dr_lantent_weight, interact_mat, interact_mat_t):
 
         dim = dis_emb.shape[1]
         n_factors = self.n_factors
@@ -59,17 +58,17 @@ class GraphConv(nn.Module):
 
 
     def forward(self, dis_emb, dr_emb, latent_emb, di_lantent_weight, dr_lantent_weight, interact_mat, interact_mat_t,
-                u_edge, v_edge, di_emb_sim, dr_emb_sim):
+                dr_sim_filter_mat, di_sim_filter_mat, di_emb_sim, dr_emb_sim):
 
         dis_res_emb = torch.cat((F.normalize(dis_emb), F.normalize(di_emb_sim)), -1)
         drug_res_emb = torch.cat((F.normalize(dr_emb), F.normalize(dr_emb_sim)), -1)
 
         for i in range(len(self.convs)):
             dis_emb, dr_emb = self.convs[i](dis_emb, dr_emb, latent_emb, di_lantent_weight, dr_lantent_weight,
-                                            interact_mat, interact_mat_t, u_edge, v_edge)
+                                            interact_mat, interact_mat_t)
             # v_edge的值为SMILES计算出的相似度，通过sim_threhold保留高于阈值的邻居。
-            di_emb_sim = torch.mm(v_edge, di_emb_sim)
-            dr_emb_sim = torch.mm(u_edge, dr_emb_sim)
+            di_emb_sim = torch.mm(di_sim_filter_mat, di_emb_sim)
+            dr_emb_sim = torch.mm(dr_sim_filter_mat, dr_emb_sim)
             """result emb"""
             dis_res_emb = torch.cat((dis_res_emb, F.normalize(dis_emb), F.normalize(di_emb_sim)), -1)
             drug_res_emb = torch.cat((drug_res_emb, F.normalize(dr_emb), F.normalize(dr_emb_sim)), -1)
@@ -164,7 +163,7 @@ class Recommender(BaseModel):
         type = graph_tensor[:, -1]  # [-1, 1]
         return index.t().long().cuda(), type.long().cuda()
 
-    def forward(self, interact_mat, interact_mat_t, u_edge, v_edge):
+    def forward(self, interact_mat, interact_mat_t, dr_sim_filter_mat, di_sim_filter_mat):
 
         di_emb = self.all_embed[:self.n_diseases, :]
         dr_emb = self.all_embed[self.n_diseases:, :]
@@ -180,15 +179,14 @@ class Recommender(BaseModel):
                                                      self.dr_lantent_weight,
                                                      interact_mat,
                                                      interact_mat_t,
-                                                     u_edge,
-                                                     v_edge,di_emb_sim,dr_emb_sim)
+                                                     dr_sim_filter_mat, di_sim_filter_mat,di_emb_sim,dr_emb_sim)
         predict = torch.sigmoid(torch.matmul(drug_gcn_emb, dis_gcn_emb.t()))
 
         return predict, dis_gcn_emb, drug_gcn_emb
 
     def step(self, batch:FullGraphData):
         label = batch.label
-        predict, u, v = self.forward(batch.interact_mat, batch.interact_mat_t, batch.u_edge, batch.v_edge)
+        predict, u, v = self.forward(batch.interact_mat, batch.interact_mat_t, batch.dr_sim_filter_mat, batch.di_sim_filter_mat)
 
         # 将下面的if条件屏蔽掉，就可以读取最后一次的测试结果
         if not self.training:
