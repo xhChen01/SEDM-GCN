@@ -1,5 +1,5 @@
-# SEPN
-the code of Similarity Enhanced Pathogeny Network
+# SEDM-GCN
+the code of Graph Convolutional Network on Similarity Enhanced Drug-Disease Mediator Network
 # Dependencies
 - python == 3.9.1
 - pytorch == 1.9.0
